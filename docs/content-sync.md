@@ -37,7 +37,7 @@ Repository Settings에서 아래 값을 설정한다.
 
 - `https://your-active-recall-quiz.example.com/api/content-sync/bundles`
 
-토큰은 GitHub Actions에서 `Authorization: Bearer <token>` 헤더로 전송된다.
+토큰은 GitHub Actions에서 `X-Content-Sync-Token: <token>` 헤더로 전송된다.
 
 ### Variables
 

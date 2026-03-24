@@ -118,6 +118,6 @@ jobs:
             --max-time "${SYNC_TIMEOUT_SECONDS}" \
             -X POST "${SYNC_URL}" \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${SYNC_TOKEN}" \
+            -H "X-Content-Sync-Token: ${SYNC_TOKEN}" \
             -H "X-Content-Snapshot-Version: ${GITHUB_SHA}" \
             --data-binary @"${RUNNER_TEMP}/notes-snapshot.json"
