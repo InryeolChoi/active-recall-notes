@@ -1,7 +1,7 @@
 # content sync 설정
 
 이 저장소는 `main` 브랜치에 노트를 직접 작성하고 직접 `git push` 하는 운영을 전제로 한다.
-`main`에 note markdown이 push되면 GitHub Actions가 실행되고, markdown 파일들을 하나의 JSON snapshot으로 변환한 뒤 `active-recall-quiz`의 content sync 엔드포인트로 POST 한다.
+`main`에 note markdown이 push되면 GitHub Actions가 실행되고, markdown 파일들을 하나의 JSON snapshot bundle로 변환한 뒤 `active-recall-quiz`의 content sync 엔드포인트로 POST 한다.
 
 ## 전체 흐름
 
@@ -35,7 +35,7 @@ Repository Settings에서 아래 값을 설정한다.
 
 예시 URL:
 
-- `https://your-active-recall-quiz.example.com/api/content/sync`
+- `https://your-active-recall-quiz.example.com/api/content-sync/bundles`
 
 토큰은 GitHub Actions에서 `Authorization: Bearer <token>` 헤더로 전송된다.
 
@@ -51,38 +51,43 @@ Repository Settings에서 아래 값을 설정한다.
 
 ## 요청 형태
 
-workflow는 현재 저장소의 note markdown 전체 스냅샷을 JSON으로 만들어 전송한다.
+workflow는 현재 저장소의 note markdown 전체 스냅샷을 `manifest + documents + questions` 형태의 JSON bundle로 만들어 전송한다.
 요청에는 아래 정보가 함께 포함된다.
 
-- source
-- 저장소명
-- git ref
-- 현재 commit SHA
-- 이전 SHA
-- snapshotVersion
+- bundleVersion
+- sourceCommit
 - generatedAt
-- 변경된 note 파일 목록
-- 전체 markdown 문서 목록과 각 파일 내용
-- unitId / partId / title
-- Actions run id / attempt
-- 전체 note 스냅샷 기준 `snapshotKey`
+- contentHash
+- 문서 메타데이터 목록
+- 파싱 및 정규화된 question 목록
 
 예시 필드:
 
-- `source`
-- `ref`
-- `commitSha`
-- `snapshotVersion`
-- `generatedAt`
+- `manifest`
 - `documents`
+- `questions`
 
 각 document는 최소한 아래 필드를 포함한다.
 
-- `path`
+- `documentId`
 - `unitId`
-- `partId`
+- `part`
 - `title`
-- `content`
+- `sourcePath`
+
+각 question은 최소한 아래 필드를 포함한다.
+
+- `questionId`
+- `unitId`
+- `part`
+- `type`
+- `prompts`
+- `answers`
+- `aliases`
+- `keywords`
+- `warnings`
+- `sourcePath`
+- `sourceLine`
 
 ## 실패 확인
 
@@ -91,11 +96,11 @@ workflow는 현재 저장소의 note markdown 전체 스냅샷을 JSON으로 만
 
 ## idempotent 재실행
 
-같은 commit SHA 기준 snapshot은 다시 보내도 안전하도록 설계했다.
+같은 commit SHA 기준 bundle은 다시 보내도 안전하도록 설계했다.
 
-- `snapshotVersion`은 기본적으로 `commitSha`와 동일하다.
-- 전체 snapshot을 보내므로 부분 patch 누적으로 꼬이지 않는다.
-- 같은 push를 rerun 하더라도 quiz 쪽에서 `commitSha`, `snapshotVersion`, `snapshotKey` 기준으로 upsert 또는 동일 snapshot 무시를 적용할 수 있다.
+- `manifest.bundleVersion`은 기본적으로 `commitSha`와 동일하다.
+- 전체 snapshot bundle을 보내므로 부분 patch 누적으로 꼬이지 않는다.
+- 같은 push를 rerun 하더라도 quiz 쪽에서 `bundleVersion` 기준으로 기존 snapshot을 재사용할 수 있다.
 - workflow는 `X-Content-Snapshot-Version` 헤더에도 현재 commit SHA를 함께 보낸다.
 
 ## 실패 처리

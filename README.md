@@ -30,9 +30,9 @@
 - `unit_01_01/part01.md`
 - `unit_01_01/part10.md`
 
-`main` 브랜치에 이 노트 파일들을 직접 작성하고 수동으로 `git push` 하면, GitHub Actions가 실행되어 `active-recall-quiz`의 content sync 엔드포인트로 현재 노트 스냅샷을 전송한다.
+`main` 브랜치에 이 노트 파일들을 직접 작성하고 수동으로 `git push` 하면, GitHub Actions가 실행되어 `active-recall-quiz`의 content sync 엔드포인트로 현재 노트 스냅샷 bundle을 전송한다.
 
-동기화는 개별 파일 누적 전송이 아니라 markdown 전체를 하나의 JSON snapshot으로 변환해 전달하는 방식으로 동작한다.
+동기화는 개별 파일 누적 전송이 아니라 markdown 전체를 하나의 JSON snapshot bundle로 변환해 전달하는 방식으로 동작한다.
 
 ## 작성 원칙
 
