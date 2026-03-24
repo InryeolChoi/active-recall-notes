@@ -33,6 +33,7 @@
 `main` 브랜치에 이 노트 파일들을 직접 작성하고 수동으로 `git push` 하면, GitHub Actions가 실행되어 `active-recall-quiz`의 content sync 엔드포인트로 현재 노트 스냅샷을 전송한다.
 
 동기화는 개별 파일 누적 전송이 아니라 markdown 전체를 하나의 JSON snapshot으로 변환해 전달하는 방식으로 동작한다.
+이 과정의 Python 실행은 로컬 전역 패키지 설치 대신 `uv` 기준으로 맞춘다.
 
 ## 작성 원칙
 

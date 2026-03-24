@@ -2,6 +2,7 @@
 
 이 저장소는 `main` 브랜치에 노트를 직접 작성하고 직접 `git push` 하는 운영을 전제로 한다.
 `main`에 note markdown이 push되면 GitHub Actions가 실행되고, markdown 파일들을 하나의 JSON snapshot으로 변환한 뒤 `active-recall-quiz`의 content sync 엔드포인트로 POST 한다.
+Python 실행은 로컬 전역 패키지 설치를 전제로 하지 않고 `uv` 기준으로 처리한다.
 
 ## 전체 흐름
 
@@ -23,6 +24,12 @@
 - `scripts/build_content_sync_payload.py`
 
 즉, 사용자가 `main`에서 노트 markdown을 수정한 뒤 수동으로 `git push` 하면 해당 push가 그대로 sync 트리거가 된다.
+
+## Python 실행 방식
+
+- GitHub Actions에서는 `astral-sh/setup-uv`로 `uv`를 준비한다.
+- snapshot 생성과 payload 검증은 `uv run --python 3.12 ...` 형태로 실행한다.
+- 로컬에서 검증할 때도 전역 패키지 설치 대신 `uv run`을 사용한다.
 
 ## 필요한 GitHub 설정
 
