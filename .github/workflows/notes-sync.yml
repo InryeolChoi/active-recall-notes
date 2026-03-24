@@ -1,0 +1,120 @@
+name: Sync Notes Snapshot To Active Recall Quiz
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "unit_*/*.md"
+      - "unit_*/**/*.md"
+      - ".github/workflows/notes-sync.yml"
+      - "scripts/build_content_sync_payload.py"
+
+jobs:
+  sync-notes:
+    name: Sync markdown snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate sync configuration
+        env:
+          SYNC_URL: ${{ secrets.ACTIVE_RECALL_QUIZ_SYNC_URL }}
+          SYNC_TOKEN: ${{ secrets.ACTIVE_RECALL_QUIZ_SYNC_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SYNC_URL}" ]; then
+            echo "Missing required repository secret: ACTIVE_RECALL_QUIZ_SYNC_URL" >&2
+            exit 1
+          fi
+
+          if [ -z "${SYNC_TOKEN}" ]; then
+            echo "Missing required repository secret: ACTIVE_RECALL_QUIZ_SYNC_TOKEN" >&2
+            exit 1
+          fi
+
+      - name: Compute changed markdown files
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          ZERO_SHA="0000000000000000000000000000000000000000"
+
+          if [ "${BEFORE_SHA}" = "${ZERO_SHA}" ]; then
+            git ls-tree -r --name-only "${AFTER_SHA}" > all_files.txt
+            grep -E '^unit_.+\.md$' all_files.txt > changed_markdown_files.txt || true
+          else
+            git diff --name-only "${BEFORE_SHA}" "${AFTER_SHA}" > changed_files.txt
+            grep -E '^unit_.+\.md$' changed_files.txt > changed_markdown_files.txt || true
+          fi
+
+          markdown_count="$(wc -l < changed_markdown_files.txt | tr -d ' ')"
+          printf 'changed_markdown_count=%s\n' "${markdown_count}"
+
+      - name: Build markdown snapshot payload
+        env:
+          SOURCE_NAME: ${{ vars.ACTIVE_RECALL_SYNC_SOURCE || 'active-recall-notes' }}
+          REF_NAME: ${{ github.ref }}
+          COMMIT_SHA: ${{ github.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          REPOSITORY: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+
+          python3 scripts/build_content_sync_payload.py \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --source "${SOURCE_NAME}" \
+            --repository "${REPOSITORY}" \
+            --ref "${REF_NAME}" \
+            --commit-sha "${COMMIT_SHA}" \
+            --before-sha "${BEFORE_SHA}" \
+            --actor "${ACTOR}" \
+            --run-id "${RUN_ID}" \
+            --run-attempt "${RUN_ATTEMPT}" \
+            --changed-files-file "${GITHUB_WORKSPACE}/changed_markdown_files.txt" \
+            --output "${RUNNER_TEMP}/notes-snapshot.json"
+
+      - name: Show payload summary
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          payload_path = Path(os.environ["RUNNER_TEMP"]) / "notes-snapshot.json"
+          payload = json.loads(payload_path.read_text(encoding="utf-8"))
+
+          print(f"source={payload['source']}")
+          print(f"snapshotVersion={payload['snapshotVersion']}")
+          print(f"documentCount={len(payload['documents'])}")
+          print(f"changedFileCount={len(payload['changedFiles'])}")
+          PY
+
+      - name: POST snapshot to content sync API
+        env:
+          SYNC_URL: ${{ secrets.ACTIVE_RECALL_QUIZ_SYNC_URL }}
+          SYNC_TOKEN: ${{ secrets.ACTIVE_RECALL_QUIZ_SYNC_TOKEN }}
+          SYNC_TIMEOUT_SECONDS: ${{ vars.ACTIVE_RECALL_SYNC_TIMEOUT_SECONDS || '30' }}
+        run: |
+          set -euo pipefail
+
+          curl --silent --show-error --fail-with-body \
+            --max-time "${SYNC_TIMEOUT_SECONDS}" \
+            -X POST "${SYNC_URL}" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${SYNC_TOKEN}" \
+            -H "X-Content-Snapshot-Version: ${GITHUB_SHA}" \
+            --data-binary @"${RUNNER_TEMP}/notes-snapshot.json"
